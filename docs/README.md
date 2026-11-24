@@ -64,3 +64,14 @@ formatting change is authorized.
 Hardware validation still requires Windows, SteamVR, a compatible headset,
 VRCFaceTracking, and a receiving PC running VTube Studio. Automated receiver
 tests do not verify those applications or the receiving PC's firewall.
+
+## Windows executable
+
+On Windows, run `build.bat` to produce `dist/VR to VTuber.exe`.
+The **Build Windows executable** GitHub Actions workflow also builds on pushes
+to `build/**` branches and supports manual dispatch. It runs the automated
+checks, packages with the existing PyInstaller spec, and checks that the
+executable stays running for five seconds. Download the
+**VR-to-VTuber-Windows** artifact for the executable, SHA-256 checksum, source
+commit, and installed package versions. This launch check does not verify
+headset tracking or a connection to a real VTube Studio instance.
