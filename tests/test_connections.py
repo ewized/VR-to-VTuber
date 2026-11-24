@@ -55,6 +55,14 @@ class EndpointSettingsTests(unittest.TestCase):
         settings.read_vts_endpoint("[::1]", "8001")
         self.assertEqual(state.vts_host, "::1")
 
+    def test_blank_address_uses_and_remembers_localhost(self):
+        for host in ("", "   "):
+            with self.subTest(host=host):
+                settings.read_vts_endpoint(host, "8002")
+                settings.save()
+                settings.load()
+                self.assertEqual((state.vts_host, state.vts_port), ("127.0.0.1", 8002))
+
     def test_malformed_saved_endpoint_keeps_defaults(self):
         for host, port in ((42, 8001), ("stream-pc", "invalid")):
             with self.subTest(host=host, port=port):
@@ -66,8 +74,6 @@ class EndpointSettingsTests(unittest.TestCase):
     def test_invalid_address_or_port_changes_neither_value(self):
         settings.read_vts_endpoint("stream-pc", "8002")
         cases = (
-            ("", "8001"),
-            ("  ", "8001"),
             ("a b", "8001"),
             ("ws://stream-pc", "8001"),
             ("stream-pc:8001", "8001"),
@@ -150,6 +156,44 @@ class VTubeConnectionTests(unittest.IsolatedAsyncioTestCase):
         ):
             await self.check_connection("stream-pc.example", "127.0.0.2")
         self.assertIn("stream-pc.example", resolved_hosts)
+
+    async def test_hostname_connects_directly_despite_a_configured_proxy(self):
+        with (
+            patch("urllib.request.proxy_bypass", return_value=False),
+            patch(
+                "urllib.request.getproxies",
+                return_value={"http": "http://127.0.0.1:1"},
+            ),
+        ):
+            await self.check_connection("localhost", "127.0.0.1")
+
+    async def test_name_resolution_failure_is_shown_in_the_window_status(self):
+        settings.read_vts_endpoint("missing-pc.invalid", "8001")
+        resolved = asyncio.Event()
+
+        async def cannot_resolve(*args, **kwargs):
+            resolved.set()
+            raise socket.gaierror(socket.EAI_NONAME, "Unknown hostname")
+
+        loop = asyncio.get_running_loop()
+        with patch.object(loop, "getaddrinfo", side_effect=cannot_resolve):
+            task = asyncio.create_task(vtube.session())
+            try:
+                await asyncio.wait_for(resolved.wait(), timeout=2)
+
+                # Resolution runs within the client's connection task. Let its
+                # error propagate to the session's visible status handler.
+                async def wait_for_error():
+                    while "Cannot resolve" not in state.status["detail"]:
+                        await asyncio.sleep(0.01)
+
+                await asyncio.wait_for(wait_for_error(), timeout=2)
+                self.assertIn("missing-pc.invalid", state.status["detail"])
+                self.assertIn("IP address", state.status["detail"])
+                self.assertEqual(state.status["output"], "Waiting for VTube Studio")
+            finally:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
 
     async def test_connects_and_sends_tracking_to_entered_ipv6_address(self):
         # Some Windows and CI installations disable IPv6 loopback entirely.

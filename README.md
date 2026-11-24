@@ -70,7 +70,7 @@ Move these while the app is running. Each output remembers its own positions. Th
 
 **Flip turn**, **Flip nod**, and **Flip tilt** reverse a neck axis if the model moves the wrong way.
 
-VTube Studio remembers the PC address and port. Stop the bridge before changing either value. SteamVR and VRCFaceTracking stay on the headset PC. See [connection details and development checks](docs/README.md).
+VTube Studio remembers the PC address and port in `bridge_settings.json` beside the executable. Clicking a field selects all its text. The **X** at the right edge of the address field clears it and resets the destination to `127.0.0.1`; a blank address also uses that default. Stop the bridge before changing either value. SteamVR and VRCFaceTracking stay on the headset PC. See [connection details and development checks](docs/README.md).
 
 On iFacialMocap, **Send to** is the address and port the packets go to. VMagicMirror and Warudo have to listen there.
 

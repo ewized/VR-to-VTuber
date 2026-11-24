@@ -180,13 +180,13 @@ def set_destination(dest):
 def read_vts_endpoint(host, port):
     """Validate and store a VTube Studio host and port without resolving DNS.
 
-    Accept IP literals (including bracketed IPv6) and hostnames. A ValueError
-    leaves both saved values unchanged so an invalid form cannot start a
-    connection to a previous address by mistake.
+    Accept IP literals (including bracketed IPv6) and hostnames; a blank host
+    uses localhost. A ValueError leaves both saved values unchanged so an
+    invalid form cannot connect to a previous address by mistake.
     """
     if not isinstance(host, str):
         raise ValueError("Enter an IP address or hostname without a URL or port.")
-    host = host.strip()
+    host = host.strip() or "127.0.0.1"
     if host.startswith("[") and host.endswith("]"):
         host = host[1:-1]
         try:

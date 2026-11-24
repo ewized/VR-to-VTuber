@@ -16,13 +16,27 @@ See the [VTube Studio API documentation](https://github.com/DenchiSoft/VTubeStud
 for API activation, ports, and plugin authentication.
 
 Do not enter `ws://`, a path, or a port in the address field. Leading and
-trailing spaces are removed. Blank addresses and invalid ports show an error
-and do not start the bridge. Stop the bridge before editing the address or port.
-Both values are saved in `bridge_settings.json` as `vts_host` and `vts_port`.
+trailing spaces are removed. A blank address uses `127.0.0.1`. The **X** joined
+to the right of the address field clears it and saves that localhost default;
+the port stays unchanged. Clicking or tabbing into either field selects all
+its text. Invalid addresses or ports show an error and do not start the bridge.
+Stop the bridge before editing the address or port.
+
+Both values are saved in `bridge_settings.json` beside the executable as
+`vts_host` and `vts_port` when you leave either field, start, stop, or close the
+app. Reset saves immediately. Launching from a network share stores settings
+beside that shared executable; a local copy uses its own adjacent settings file.
 Older settings files continue to use `127.0.0.1:8001` until changed.
 
-The WebSocket client resolves hostnames when connecting. An unresolvable name
-or unreachable receiver keeps the output waiting and retries the connection.
+The WebSocket client uses the operating system to resolve hostnames when
+connecting. Connections go directly to the selected PC, bypassing system web
+proxies. This requires websockets 15 or newer because that version added the
+explicit proxy option; see the [websockets proxy documentation](https://websockets.readthedocs.io/en/stable/topics/proxies.html).
+An unresolvable name displays **Cannot resolve** with the entered name. An
+unreachable receiver displays **Cannot connect** with the destination and port.
+The output stays waiting and retries in both cases. Proxy bypass does not make
+an unknown hostname resolvable: use a name registered with the headset PC's
+DNS or Windows name-resolution services, or use the working IP address.
 Changing PCs may require accepting a new VTube Studio permission prompt because
 the existing authentication token is shared between destinations.
 

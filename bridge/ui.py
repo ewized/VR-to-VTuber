@@ -151,12 +151,20 @@ class App(tk.Tk):
         vts_address.pack(fill="x", pady=(4, 0))
         self.vts_host_var = tk.StringVar(value=state.vts_host)
         self.vts_port_var = tk.StringVar(value=str(state.vts_port))
-        self.vts_host_entry = tk.Entry(vts_address, textvariable=self.vts_host_var, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", width=24, font=("Segoe UI", 11))
+        vts_host_box = tk.Frame(vts_address, bg=CARD)
+        vts_host_box.pack(side="left", fill="x", expand=True)
+        self.vts_host_entry = tk.Entry(vts_host_box, textvariable=self.vts_host_var, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", borderwidth=0, highlightthickness=0, width=24, font=("Segoe UI", 11))
         self.vts_host_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        self.vts_reset_btn = tk.Button(vts_host_box, text="X", command=self._reset_vts_host, bg=CARD, fg=MUTED, activebackground=CARD, activeforeground=TEXT, disabledforeground=MUTED, relief="flat", borderwidth=0, highlightthickness=0, width=2, font=("Segoe UI", 11))
+        self.vts_reset_btn.pack(side="right", fill="y")
         tk.Label(vts_address, text="Port", bg=BG, fg=TEXT, font=("Segoe UI", 11)).pack(side="left", padx=(12, 4))
         self.vts_port_entry = tk.Entry(vts_address, textvariable=self.vts_port_var, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", width=7, font=("Segoe UI", 11))
         self.vts_port_entry.pack(side="left", ipady=4)
-        tk.Label(self.vts_endpoint, text="Use 127.0.0.1 for this PC. Default port: 8001.", bg=BG, fg=MUTED, font=("Segoe UI", 10)).pack(anchor="w", pady=(4, 0))
+        for entry in (self.vts_host_entry, self.vts_port_entry):
+            entry.bind("<Button-1>", self._select_address_text)
+            entry.bind("<FocusIn>", self._select_address_text)
+            entry.bind("<FocusOut>", self._save_vts_endpoint)
+        tk.Label(self.vts_endpoint, text="Blank address uses 127.0.0.1 (this PC). Default port: 8001.", bg=BG, fg=MUTED, font=("Segoe UI", 10)).pack(anchor="w", pady=(4, 0))
         self.vts_endpoint_error = tk.StringVar()
         tk.Label(self.vts_endpoint, textvariable=self.vts_endpoint_error, bg=BG, fg=RED, font=("Segoe UI", 10), wraplength=500, justify="left").pack(anchor="w")
 
@@ -293,6 +301,7 @@ class App(tk.Tk):
         self.start_btn.configure(state="disabled" if self.running else "normal")
         for entry in (self.vts_host_entry, self.vts_port_entry):
             entry.configure(state="disabled" if self.running else "normal")
+        self.vts_reset_btn.configure(state="disabled" if self.running else "normal")
         if self.running:
             self.stop_btn.configure(bg=RED, fg=TEXT, activebackground=RED, activeforeground=TEXT)
         else:
@@ -374,6 +383,30 @@ class App(tk.Tk):
             return False
         self.vts_endpoint_error.set("")
         return True
+
+    def _save_vts_endpoint(self, _event=None):
+        """Remember a valid address and port when either field loses focus."""
+        if not self.running and state.destination == "vts" and self._read_vts_endpoint():
+            save()
+
+    def _reset_vts_host(self):
+        """Clear the host field and save localhost without changing the port."""
+        if self.running:
+            return
+        self.vts_host_var.set("")
+        read_vts_endpoint("", state.vts_port)
+        save()
+        self.vts_endpoint_error.set("")
+        self.vts_host_entry.focus_set()
+
+    def _select_address_text(self, event):
+        """Select the whole field on click or keyboard focus before Tk moves the cursor."""
+        if self.running:
+            return
+        event.widget.focus_set()
+        event.widget.selection_range(0, tk.END)
+        event.widget.icursor(tk.END)
+        return "break"
 
     def start(self):
         if self.worker and self.worker.is_alive():

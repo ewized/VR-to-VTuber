@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import socket
 import time
 
 import bridge.state as state
@@ -147,13 +148,18 @@ async def session():
 
     while not state.stop_event.is_set() and state.destination == "vts":
         reader = None
+        state.status["output"] = "Waiting for VTube Studio"
+        state.status["detail"] = f"Connecting to VTube Studio at {host}:{state.vts_port}."
         try:
-            async with websockets.connect(url) as ws:
+            # This is a direct PC connection; system web proxies may not resolve
+            # LAN hostnames. See docs/README.md for the connection policy.
+            async with websockets.connect(url, proxy=None) as ws:
                 async def call(message_type, data, request_id):
                     await ws.send(_envelope(message_type, data, request_id))
                     return json.loads(await ws.recv())
 
                 if not token:
+                    state.status["detail"] = f"Allow VR to VTuber in VTube Studio on {state.vts_host}."
                     resp = await call("AuthenticationTokenRequest", {
                         "pluginName": PLUGIN_NAME,
                         "pluginDeveloper": PLUGIN_DEV,
@@ -180,6 +186,7 @@ async def session():
 
                 print("Connected to VTube Studio.", flush=True)
                 state.status["output"] = "Connected"
+                state.status["detail"] = f"Connected to VTube Studio at {host}:{state.vts_port}."
                 reader = asyncio.create_task(_read_api(ws))
                 period = 1.0 / 60.0
                 next_tick = time.monotonic()
@@ -212,6 +219,14 @@ async def session():
                 return
             print(f"VTube Studio not ready ({exc}). Retrying.", flush=True)
             state.status["output"] = "Waiting for VTube Studio"
+            if isinstance(exc, socket.gaierror):
+                state.status["detail"] = (
+                    f"Cannot resolve {state.vts_host}. Check the PC name or use its IP address."
+                )
+            else:
+                state.status["detail"] = (
+                    f"Cannot connect to {host}:{state.vts_port}. Check the address, API port, and firewall."
+                )
             await asyncio.sleep(2)
         finally:
             if reader is not None:

@@ -50,7 +50,7 @@ class AddressFormTests(unittest.TestCase):
         self.assertEqual(self.app.vts_port_var.get(), "8002")
 
     def test_invalid_address_prevents_starting_worker(self):
-        for host, port in (("", "8001"), ("stream-pc", "0")):
+        for host, port in (("ws://stream-pc", "8001"), ("stream-pc", "0")):
             with (
                 self.subTest(host=host, port=port),
                 patch("bridge.ui.threading.Thread") as worker,
@@ -61,6 +61,41 @@ class AddressFormTests(unittest.TestCase):
                 worker.assert_not_called()
                 self.assertFalse(self.app.running)
                 self.assertTrue(self.app.vts_endpoint_error.get())
+
+    def test_reset_clears_the_field_and_remembers_localhost(self):
+        self.app.vts_host_var.set("stream-pc")
+        self.app.vts_port_var.set("8002")
+        self.app.vts_port_entry.event_generate("<FocusOut>")
+        self.app.vts_reset_btn.invoke()
+        self.assertEqual(self.app.vts_host_var.get(), "")
+        self.assertEqual(self.app.vts_port_var.get(), "8002")
+        self.assertTrue(self.app._persist())
+        settings.load()
+        self.assertEqual((state.vts_host, state.vts_port), ("127.0.0.1", 8002))
+
+    def test_address_and_port_are_remembered_after_leaving_the_field(self):
+        self.app.vts_host_var.set("stream-pc")
+        self.app.vts_port_var.set("8002")
+        self.app.vts_host_entry.event_generate("<FocusOut>")
+        settings.load()
+        self.assertEqual((state.vts_host, state.vts_port), ("stream-pc", 8002))
+
+    def test_click_and_keyboard_focus_select_all_text(self):
+        for entry, value in (
+            (self.app.vts_host_entry, "127.0.0.1"),
+            (self.app.vts_port_entry, "8001"),
+        ):
+            for event in ("<Button-1>", "<FocusIn>"):
+                with self.subTest(field=entry, event=event):
+                    entry.selection_clear()
+                    if event == "<Button-1>":
+                        entry.event_generate(event, x=1, y=1)
+                    else:
+                        entry.event_generate(event)
+                    self.app.update()
+                    self.assertTrue(entry.selection_present())
+                    self.assertEqual(entry.index("sel.first"), 0)
+                    self.assertEqual(entry.index("sel.last"), len(value))
 
     def test_start_uses_entered_address_and_stop_allows_editing(self):
         self.app.vts_host_var.set("stream-pc")
@@ -82,11 +117,15 @@ class AddressFormTests(unittest.TestCase):
                 self.assertEqual((state.vts_host, state.vts_port), ("stream-pc", 8002))
                 self.assertEqual(str(self.app.vts_host_entry["state"]), "disabled")
                 self.assertEqual(str(self.app.vts_port_entry["state"]), "disabled")
+                self.assertEqual(str(self.app.vts_reset_btn["state"]), "disabled")
+                self.app.vts_reset_btn.invoke()
+                self.assertEqual(self.app.vts_host_var.get(), "stream-pc")
             finally:
                 self.app.stop_btn.invoke()
                 self.app.worker.join(timeout=2)
         self.assertEqual(str(self.app.vts_host_entry["state"]), "normal")
         self.assertEqual(str(self.app.vts_port_entry["state"]), "normal")
+        self.assertEqual(str(self.app.vts_reset_btn["state"]), "normal")
 
 
 if __name__ == "__main__":
