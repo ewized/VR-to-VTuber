@@ -19,6 +19,7 @@ stop_event = threading.Event()
 destination = "vts"
 ifm_host = "127.0.0.1"
 ifm_port = 49983
+vts_host = "127.0.0.1"
 vts_port = 8001
 tuning = {}
 loaded = False

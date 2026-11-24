@@ -1,4 +1,4 @@
 python-osc
-websockets
+websockets>=15
 zeroconf
 openvr
