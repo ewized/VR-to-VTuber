@@ -1,3 +1,4 @@
+import ipaddress
 import json
 import os
 
@@ -100,6 +101,8 @@ def load():
     state.destination = "vts"
     state.ifm_host = "127.0.0.1"
     state.ifm_port = 49983
+    state.vts_host = "127.0.0.1"
+    state.vts_port = 8001
     state.tuning = {dest: default_tuning(dest) for dest in PRESETS}
     path = settings_path()
     data = {}
@@ -118,6 +121,10 @@ def load():
     port = data.get("ifm_port")
     if isinstance(port, int) and 1 <= port <= 65535:
         state.ifm_port = port
+    try:
+        read_vts_endpoint(data.get("vts_host", state.vts_host), data.get("vts_port", state.vts_port))
+    except ValueError:
+        pass
     saved = data.get("tuning") if isinstance(data.get("tuning"), dict) else {}
     for name in PRESETS:
         merged = default_tuning(name)
@@ -143,6 +150,8 @@ def save():
         "destination": state.destination,
         "ifm_host": state.ifm_host,
         "ifm_port": int(state.ifm_port),
+        "vts_host": state.vts_host,
+        "vts_port": int(state.vts_port),
         "tuning": state.tuning,
     }
     with open(settings_path(), "w", encoding="utf-8") as handle:
@@ -166,6 +175,39 @@ def set_destination(dest):
     if str(state.status.get("output", "")).startswith("Waiting") or state.status.get("output") == "Connected":
         state.status["output"] = PRESETS[dest]["waiting"]
     save()
+
+
+def read_vts_endpoint(host, port):
+    """Validate and store a VTube Studio host and port without resolving DNS.
+
+    Accept IP literals (including bracketed IPv6) and hostnames. A ValueError
+    leaves both saved values unchanged so an invalid form cannot start a
+    connection to a previous address by mistake.
+    """
+    if not isinstance(host, str):
+        raise ValueError("Enter an IP address or hostname without a URL or port.")
+    host = host.strip()
+    if host.startswith("[") and host.endswith("]"):
+        host = host[1:-1]
+        try:
+            ipaddress.IPv6Address(host)
+        except ValueError:
+            raise ValueError("Enter an IP address or hostname without a URL or port.") from None
+    if not host or any(char.isspace() or char in "/\\?#@[]" for char in host):
+        raise ValueError("Enter an IP address or hostname without a URL or port.")
+    if ":" in host:
+        try:
+            ipaddress.IPv6Address(host)
+        except ValueError:
+            raise ValueError("Enter the port in the Port field.") from None
+    try:
+        number = int(str(port).strip())
+    except (TypeError, ValueError):
+        raise ValueError("Enter a port from 1 to 65535.") from None
+    if not 1 <= number <= 65535:
+        raise ValueError("Enter a port from 1 to 65535.")
+    state.vts_host = host
+    state.vts_port = number
 
 
 def read_endpoint(host, port):

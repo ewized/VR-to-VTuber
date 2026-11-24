@@ -8,7 +8,7 @@ from tkinter import ttk
 import bridge.state as state
 from bridge.head import recenter
 from bridge.paths import app_dir
-from bridge.settings import PRESETS, ensure_loaded, read_endpoint, save, set_destination
+from bridge.settings import PRESETS, ensure_loaded, read_endpoint, read_vts_endpoint, save, set_destination
 from bridge.update import VERSION
 
 BG = "#16161c"
@@ -26,10 +26,11 @@ COPY = {
         "steps": (
             "You will need SteamVR, VRCFaceTracking, and VTube Studio.\n"
             "1. Start SteamVR with your headset on.\n"
-            "2. Press Start and look straight ahead.\n"
-            "3. Open VRCFaceTracking.\n"
-            "4. In VTube Studio, turn on Start API. Leave the port at 8001.\n"
-            "5. Allow VR to VTuber the first time it asks."
+            "2. Enter the VTube Studio PC's IP address or hostname below.\n"
+            "3. Press Start and look straight ahead.\n"
+            "4. Open VRCFaceTracking.\n"
+            "5. In VTube Studio, turn on Start API. Use the port below.\n"
+            "6. Allow VR to VTuber on that PC the first time it asks."
         ),
     },
     "ifm": {
@@ -144,6 +145,21 @@ class App(tk.Tk):
         self.host_var.trace_add("write", lambda *_a: self._read_endpoint())
         self.port_var.trace_add("write", lambda *_a: self._read_endpoint())
 
+        self.vts_endpoint = tk.Frame(body, bg=BG)
+        tk.Label(self.vts_endpoint, text="VTube Studio PC (IP address or hostname)", bg=BG, fg=TEXT, font=("Segoe UI", 11)).pack(anchor="w")
+        vts_address = tk.Frame(self.vts_endpoint, bg=BG)
+        vts_address.pack(fill="x", pady=(4, 0))
+        self.vts_host_var = tk.StringVar(value=state.vts_host)
+        self.vts_port_var = tk.StringVar(value=str(state.vts_port))
+        self.vts_host_entry = tk.Entry(vts_address, textvariable=self.vts_host_var, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", width=24, font=("Segoe UI", 11))
+        self.vts_host_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        tk.Label(vts_address, text="Port", bg=BG, fg=TEXT, font=("Segoe UI", 11)).pack(side="left", padx=(12, 4))
+        self.vts_port_entry = tk.Entry(vts_address, textvariable=self.vts_port_var, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", width=7, font=("Segoe UI", 11))
+        self.vts_port_entry.pack(side="left", ipady=4)
+        tk.Label(self.vts_endpoint, text="Use 127.0.0.1 for this PC. Default port: 8001.", bg=BG, fg=MUTED, font=("Segoe UI", 10)).pack(anchor="w", pady=(4, 0))
+        self.vts_endpoint_error = tk.StringVar()
+        tk.Label(self.vts_endpoint, textvariable=self.vts_endpoint_error, bg=BG, fg=RED, font=("Segoe UI", 10), wraplength=500, justify="left").pack(anchor="w")
+
         self.links = tk.Frame(body, bg=BG)
         self.links.pack(anchor="w", padx=24, pady=(0, 8))
 
@@ -252,10 +268,12 @@ class App(tk.Tk):
 
     def _show_endpoint(self):
         if state.destination == "ifm":
+            self.vts_endpoint.pack_forget()
             if not self.endpoint.winfo_ismapped():
                 self.endpoint.pack(fill="x", padx=24, pady=(0, 8), before=self.links)
         else:
             self.endpoint.pack_forget()
+            self.vts_endpoint.pack(fill="x", padx=24, pady=(0, 8), before=self.links)
 
     def _style_dest(self):
         for key, btn in self.dest_btns.items():
@@ -273,6 +291,8 @@ class App(tk.Tk):
 
     def _style_run(self):
         self.start_btn.configure(state="disabled" if self.running else "normal")
+        for entry in (self.vts_host_entry, self.vts_port_entry):
+            entry.configure(state="disabled" if self.running else "normal")
         if self.running:
             self.stop_btn.configure(bg=RED, fg=TEXT, activebackground=RED, activeforeground=TEXT)
         else:
@@ -287,6 +307,9 @@ class App(tk.Tk):
         self.roll.set(bool(state.INVERT_ROLL))
         self.host_var.set(state.ifm_host)
         self.port_var.set(str(state.ifm_port))
+        self.vts_host_var.set(state.vts_host)
+        self.vts_port_var.set(str(state.vts_port))
+        self.vts_endpoint_error.set("")
         copy = COPY[state.destination]
         self.subtitle.configure(text=copy["subtitle"])
         self.steps.configure(text=copy["steps"])
@@ -300,6 +323,8 @@ class App(tk.Tk):
 
     def choose(self, dest):
         if self.running or dest == state.destination:
+            return
+        if state.destination == "vts" and not self._read_vts_endpoint():
             return
         self._apply_sliders()
         self._read_endpoint()
@@ -335,12 +360,26 @@ class App(tk.Tk):
     def _persist(self):
         self._apply_sliders()
         self._read_endpoint()
+        if state.destination == "vts" and not self._read_vts_endpoint():
+            return False
         save()
+        return True
+
+    def _read_vts_endpoint(self):
+        """Show validation errors before starting or leaving the VTube Studio form."""
+        try:
+            read_vts_endpoint(self.vts_host_var.get(), self.vts_port_var.get())
+        except ValueError as exc:
+            self.vts_endpoint_error.set(str(exc))
+            return False
+        self.vts_endpoint_error.set("")
+        return True
 
     def start(self):
         if self.worker and self.worker.is_alive():
             return
-        self._persist()
+        if not self._persist():
+            return
         recenter()
 
         def go():

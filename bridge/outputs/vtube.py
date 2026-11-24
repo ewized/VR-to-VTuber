@@ -132,11 +132,16 @@ async def session():
             await asyncio.sleep(1)
         return
 
-    url = f"ws://127.0.0.1:{int(state.vts_port)}"
+    host = state.vts_host
+    # WebSocket URLs require brackets around IPv6 literals.
+    if ":" in host:
+        host = f"[{host}]"
+    url = f"ws://{host}:{int(state.vts_port)}"
     token = None
     if os.path.exists(TOKEN_PATH):
         try:
-            token = json.load(open(TOKEN_PATH, encoding="utf-8")).get("token")
+            with open(TOKEN_PATH, encoding="utf-8") as handle:
+                token = json.load(handle).get("token")
         except (OSError, json.JSONDecodeError):
             token = None
 
@@ -154,7 +159,8 @@ async def session():
                         "pluginDeveloper": PLUGIN_DEV,
                     }, "token")
                     token = resp["data"]["authenticationToken"]
-                    json.dump({"token": token}, open(TOKEN_PATH, "w", encoding="utf-8"))
+                    with open(TOKEN_PATH, "w", encoding="utf-8") as handle:
+                        json.dump({"token": token}, handle)
                     print("Approved in VTube Studio. Token saved.", flush=True)
 
                 auth = await call("AuthenticationRequest", {

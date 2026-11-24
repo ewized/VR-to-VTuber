@@ -34,10 +34,10 @@ Here I'm playing the game [POOLS](https://store.steampowered.com/app/2663530/POO
 ## Using the app
 
 1. Put the headset on and start **SteamVR**.
-2. Open **VR to VTuber**. Pick **VTube Studio** or **iFacialMocap**. Press **Start**. Look straight ahead. That pose is the neck center.
+2. Open **VR to VTuber**. Pick **VTube Studio** or **iFacialMocap**. For VTube Studio, enter the receiving PC's **IP address or hostname** and API port before pressing **Start**. Use `127.0.0.1` for this PC. Look straight ahead. That pose is the neck center.
 3. Open VRCFaceTracking. If it was already open, fully quit it and open it again. It only looks for the app when it starts. Turn **Force Relevancy** off, and make sure the module for your headset says it is tracking.
 4. Connect the app you picked:
-   - **VTube Studio.** Settings, turn **Start API** on, leave the port at `8001`. The first time, allow **VR to VTuber**.
+   - **VTube Studio.** On the receiving PC, open Settings and turn **Start API** on. Its port must match the bridge (default `8001`). Allow **VR to VTuber** when prompted. For another PC, allow inbound connections to that port through its firewall. The hostname must resolve from the headset PC.
    - **VMagicMirror.** Face Tracking, iFacialMocap. Enter the address shown in the window (usually `127.0.0.1`) and press Connect. Turn on Perfect Sync.
    - **Warudo.** Add an iFacialMocap Receiver and set its port to the port shown in the window (usually `49983`). The model needs ARKit / Perfect Sync blendshapes.
 
@@ -70,13 +70,15 @@ Move these while the app is running. Each output remembers its own positions. Th
 
 **Flip turn**, **Flip nod**, and **Flip tilt** reverse a neck axis if the model moves the wrong way.
 
+VTube Studio remembers the PC address and port. Stop the bridge before changing either value. SteamVR and VRCFaceTracking stay on the headset PC. See [connection details and development checks](docs/README.md).
+
 On iFacialMocap, **Send to** is the address and port the packets go to. VMagicMirror and Warudo have to listen there.
 
 ## If something does not move
 
 - **Neck stays on Waiting for tracking.** SteamVR is not running, the headset is not tracking yet, and the OpenXR layer has no pose either. The neck does not wait for the vtubing app.
 - **Face tracking stays on Waiting for VRCFaceTracking.** Quit VRCFaceTracking completely and open it again after you press Start. Your headset module inside VRCFaceTracking has to be active.
-- **VTube Studio stays on Waiting.** Start API has to be on, port 8001, and the allow popup accepted. The saved permission is `vts_token.json` next to the program.
+- **VTube Studio stays on Waiting.** Check the PC address or hostname, matching API port, firewall, and **Start API** on the receiving PC. Accept the permission popup there. The saved permission is `vts_token.json` next to the program.
 - **iFacialMocap stays on Waiting, or the model does not move.** The address in the window has to be the one that app is listening on. VMagicMirror wants Perfect Sync on. Warudo's receiver port has to match.
 - **The model does not match what you see in the mirror.** Brows, cheeks, and tongue only move if that model has those inputs hooked up.
 - **Eyes or mouth look extreme at rest.** Bring **Eye size** and **Smile** back toward the middle. Switching output loads that side's sliders, which may sit higher.
@@ -115,4 +117,6 @@ build.bat
 
 That writes `dist\VR to VTuber.exe`. The build has to happen on Windows because the neck uses SteamVR. Keep `icon.ico` in the same folder.
 
-`vts_token.json` is the VTube Studio permission. `bridge_settings.json` is the last switch position, the iFacialMocap address, and the sliders. Do not commit either.
+`vts_token.json` is the VTube Studio permission. `bridge_settings.json` stores the last switch position, output addresses and ports, and sliders. Do not commit either. See [development checks](docs/README.md#verification) for tests, lint, and formatting commands.
+
+> **AI agents:** Read [AGENTS.md](AGENTS.md) for project instructions.
